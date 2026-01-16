@@ -1,4 +1,9 @@
 const pool = require("../config/database");
+const {
+  moveFileToProductFolder,
+  deleteProductFolder,
+  deleteOldImage,
+} = require("../middlewares/uploadMiddleware"); // ← FIXED: changed from middleware to middlewares
 
 const getProducts = async (req, res, next) => {
   const connection = await pool.getConnection();
@@ -109,6 +114,45 @@ const createProduct = async (req, res, next) => {
       return res.status(400).json({ message: "Name and price are required" });
     }
 
+    let finalImageUrl = image_url;
+
+    // If file was uploaded, use it
+    if (req.file) {
+      // Create product first to get ID, then move file
+      const [result] = await connection.query(
+        `
+        INSERT INTO products (name, description, short_description, price, stock, category_id, created_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `,
+        [
+          name,
+          description,
+          short_description,
+          price,
+          stock || 0,
+          category_id,
+          userId,
+        ]
+      );
+
+      const productId = result.insertId;
+
+      // Move file to product-specific folder
+      finalImageUrl = moveFileToProductFolder(req.file.path, productId);
+
+      // Update product with image URL
+      await connection.query("UPDATE products SET image_url = ? WHERE id = ?", [
+        finalImageUrl,
+        productId,
+      ]);
+
+      return res.status(201).json({
+        message: "Product created successfully",
+        productId: productId,
+      });
+    }
+
+    // No file upload, use provided URL
     const [result] = await connection.query(
       `
       INSERT INTO products (name, description, short_description, price, stock, category_id, image_url, created_by)
@@ -121,7 +165,7 @@ const createProduct = async (req, res, next) => {
         price,
         stock || 0,
         category_id,
-        image_url,
+        finalImageUrl,
         userId,
       ]
     );
@@ -153,6 +197,29 @@ const updateProduct = async (req, res, next) => {
       status,
     } = req.body;
 
+    // Get current product data
+    const [currentProduct] = await connection.query(
+      "SELECT image_url FROM products WHERE id = ? AND deleted_at IS NULL",
+      [id]
+    );
+
+    if (currentProduct.length === 0) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    let finalImageUrl = image_url;
+
+    // If new file was uploaded
+    if (req.file) {
+      // Delete old image if it exists and is a local file
+      if (currentProduct[0].image_url) {
+        deleteOldImage(currentProduct[0].image_url);
+      }
+
+      // Move new file to product folder
+      finalImageUrl = moveFileToProductFolder(req.file.path, id);
+    }
+
     const [result] = await connection.query(
       `
       UPDATE products 
@@ -167,7 +234,7 @@ const updateProduct = async (req, res, next) => {
         price,
         stock,
         category_id,
-        image_url,
+        finalImageUrl,
         status,
         id,
       ]
@@ -191,6 +258,12 @@ const deleteProduct = async (req, res, next) => {
   try {
     const { id } = req.params;
 
+    // Get product data before deleting
+    const [product] = await connection.query(
+      "SELECT image_url FROM products WHERE id = ?",
+      [id]
+    );
+
     // Soft delete
     const [result] = await connection.query(
       "UPDATE products SET deleted_at = NOW() WHERE id = ?",
@@ -200,6 +273,9 @@ const deleteProduct = async (req, res, next) => {
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: "Product not found" });
     }
+
+    // Delete product folder and images
+    deleteProductFolder(id);
 
     res.json({ message: "Product deleted successfully" });
   } catch (error) {

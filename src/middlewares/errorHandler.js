@@ -1,5 +1,13 @@
 const errorHandler = (err, req, res, next) => {
-  console.error("Error:", err);
+  // Detailed logging for debugging
+  console.error("=== ERROR DETAILS ===");
+  console.error("Error Name:", err.name);
+  console.error("Error Message:", err.message);
+  console.error("Error Code:", err.code);
+  console.error("Error Stack:", err.stack);
+  console.error("Request URL:", req.url);
+  console.error("Request Method:", req.method);
+  console.error("===================");
 
   if (err.name === "ValidationError") {
     return res.status(400).json({

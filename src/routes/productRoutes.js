@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { authenticate } = require("../middlewares/auth");
 const { authorize } = require("../middlewares/rbac");
+const { upload } = require("../middlewares/uploadMiddleware");
 const {
   getProducts,
   getProductById,
@@ -31,13 +32,22 @@ router.get("/categories", getCategories);
 router.get("/:id", authenticate, getProductById);
 
 // Sales user and admin only
-router.post("/", authenticate, authorize("admin", "sales_user"), createProduct);
+router.post(
+  "/",
+  authenticate,
+  authorize("admin", "sales_user"),
+  upload.single("image"), // Add multer middleware here
+  createProduct
+);
+
 router.put(
   "/:id",
   authenticate,
   authorize("admin", "sales_user"),
+  upload.single("image"), // Add multer middleware here
   updateProduct
 );
+
 router.delete(
   "/:id",
   authenticate,
