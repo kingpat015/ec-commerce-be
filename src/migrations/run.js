@@ -2,6 +2,7 @@ const mysql = require("mysql2/promise");
 require("dotenv").config();
 
 const migrations = [
+  require("./000_create_roles"),
   require("./001_create_users"),
   require("./002_create_product_categories"),
   require("./003_create_products"),
