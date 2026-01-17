@@ -63,7 +63,7 @@ const getBulletinById = async (req, res, next) => {
       LEFT JOIN users u ON b.created_by = u.id
       WHERE b.id = ? AND b.deleted_at IS NULL
     `,
-      [id]
+      [id],
     );
 
     if (bulletins.length === 0) {
@@ -89,6 +89,7 @@ const createBulletin = async (req, res, next) => {
       short_description,
       event_date,
       location,
+      status, // ✅ ADD THIS
     } = req.body;
     const userId = req.user.userId;
 
@@ -99,19 +100,18 @@ const createBulletin = async (req, res, next) => {
     }
 
     const [result] = await connection.query(
-      `
-      INSERT INTO bulletins (type, title, description, short_description, event_date, location, created_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `,
+      `INSERT INTO bulletins (type, title, description, short_description, event_date, location, status, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         type,
         title,
         description,
         short_description,
-        event_date,
-        location,
+        event_date || null, // ✅ Convert empty string to null
+        location || null, // ✅ Convert empty string to null
+        status || "published", // ✅ ADD THIS - default to 'published'
         userId,
-      ]
+      ],
     );
 
     res.status(201).json({
@@ -156,7 +156,7 @@ const updateBulletin = async (req, res, next) => {
         location,
         status,
         id,
-      ]
+      ],
     );
 
     if (result.affectedRows === 0) {
@@ -179,7 +179,7 @@ const deleteBulletin = async (req, res, next) => {
 
     const [result] = await connection.query(
       "UPDATE bulletins SET deleted_at = NOW() WHERE id = ?",
-      [id]
+      [id],
     );
 
     if (result.affectedRows === 0) {

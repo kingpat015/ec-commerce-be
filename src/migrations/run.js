@@ -7,6 +7,7 @@ const migrations = [
   require("./003_create_products"),
   require("./004_create_bulletins"),
   require("./005_create_refresh_tokens"),
+  require("./006_create_contact_submissions"),
 ];
 
 async function runMigrations() {
@@ -25,7 +26,7 @@ async function runMigrations() {
     // STEP 2: Create database if it doesn't exist
     console.log(`Creating database '${process.env.DB_NAME}' if not exists...`);
     await connection.query(
-      `CREATE DATABASE IF NOT EXISTS ${process.env.DB_NAME}`
+      `CREATE DATABASE IF NOT EXISTS ${process.env.DB_NAME}`,
     );
     console.log("Database ready!");
 
